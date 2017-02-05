@@ -17,12 +17,13 @@
 // @description Harmonizes, formats, and locks a selected place
 // @author      WMEPH development group
 // @include     /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor\/.*$/
-// @require     https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js
 // @require     https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Beta/jquery-ui-1.11.4.custom.min.js
 // @resource    WMEPH_CSS   https://raw.githubusercontent.com/WazeUSA/WME-Place-Harmonizer/Refactor2017/WME-Place-Harmonizer.user.css
 // @resource    JQ_UI_CSS   https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant       GM_addStyle
 // @grant       GM_getResourceText
+// @connect     githubusercontent.com
+// @connect     googleapis.com
 // ==/UserScript==
 
 
@@ -166,10 +167,12 @@
     // Duplicates
     var WMEPH_NAME_LAYER;
     // unsafeWindow globals
-    var W;
-	  var require;
-	  var OpenLayers;
-	  var console;
+    var Waze, W,
+        require,
+        OpenLayers, OL,
+        console,
+        $ = unsafeWindow.$,  // This works in Tampermonkey even if sandboxed, but Greasemonkey still throws jquery errors.
+        window = unsafeWindow;  // Calling unsafeWindow seems to force sandboxing mode in Tampermonkey.
 
     ///////////////
     // Variables //
@@ -524,7 +527,6 @@
                 type: 'GET',
                 url: 'https://spreadsheets.google.com/feeds/list/1pDmenZA-3FOTvhlCq9yz1dnemTmS9l_njZQbu_jLVMI/op17piq/public/basic?alt=json',
                 success: function(response) {
-                                        debugger;
                     NON_HOSPITAL_PART_MATCH = response.feed.entry[0].gsx$hmchp.$t;
                     NON_HOSPITAL_FULL_MATCH = response.feed.entry[0].gsx$hmchf.$t;
                     ANIMAL_PART_MATCH = response.feed.entry[0].gsx$hmcap.$t;
@@ -739,7 +741,6 @@
             url: 'https://spreadsheets.google.com/feeds/list/1TIxQZVLUbAJ8iH6LPTkJsvqFb_DstrHpKsJbv1W1FZs/o4ghhas/public/basic?alt=json',
             dataType: 'json',
             success: function(response) {
-                debugger;
                 CAN_PNH_DATA = [];
                 for (var i = 0; i < response.feed.entry.length; i++) {
                     CAN_PNH_DATA.push(response.feed.entry[i].title.$t);
@@ -755,14 +756,18 @@
 
     // First function of script.  Checks to see if external data is loaded and ready
     // after the AJAX calls.  Continues to run until data is loaded or timeout is reached.
-    function placeHarmonizer_bootstrap() {
-        // If using FF / GM, use unsafeWindow references to globals.
-			  W = window.W || unsafeWindow.W;
-			  require = window.require || unsafeWindow.require;
-			  OpenLayers = window.OpenLayers || unsafeWindow.OpenLayers;
-			  console = window.console || unsafeWindow.console;
+    
 
-			  UpdateObject = require("Waze/Action/UpdateObject");
+    function placeHarmonizer_bootstrap() {
+        // References to global window properties.
+        Waze = window.W;
+        W = Waze;
+        require = window.require;
+        OpenLayers = window.OpenLayers;
+        OL = OpenLayers;
+        console = window.console;
+
+        UpdateObject = require("Waze/Action/UpdateObject");
 
         if ("undefined" !== typeof W.loginManager && "undefined" !== typeof W.map) {
             createDuplicatePlaceLayer();
@@ -7289,10 +7294,10 @@
                     PNHMatchData = CAN_PNH_DATA[phnum];
                 }
                 currMatchData = PNHMatchData.split("|");  // Split the PNH place data into string array
-                
+
                 // Name Matching
                 specCases = currMatchData[ph_speccase_ix];
-               if (specCases.indexOf('regexNameMatch') > -1) {
+                if (specCases.indexOf('regexNameMatch') > -1) {
                     // Check for regex name matching instead of "standard" name matching.
                     var match = specCases.match(/regexNameMatch<>(.+?)<>/i);
                     if (match !== null) {
